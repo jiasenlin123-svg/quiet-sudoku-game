@@ -12,8 +12,10 @@ import {
   formatTime,
   getCandidates,
   isLastEmptyInUnit,
+  isNewBestTime,
   isPeer,
   loadJson,
+  moveSelectionForKey,
   saveJson,
   STORAGE_KEYS,
 } from "./lib/sudoku";
@@ -181,7 +183,12 @@ export function SudokuApp() {
   const finishIfComplete = useCallback((nextGame: GameState, nextBoard: number[], activePuzzle: Puzzle) => {
     if (!nextBoard.every((value, index) => value === activePuzzle.solution[index])) return nextGame;
     setShowCompletionOverlay(false);
-    const completedGame = { ...nextGame, status: "completed" as const };
+    const previousBest = progress[activePuzzle.difficulty].records[activePuzzle.level]?.bestSeconds;
+    const completedGame = {
+      ...nextGame,
+      status: "completed" as const,
+      isNewBest: isNewBestTime(previousBest, nextGame.elapsedSeconds),
+    };
     setProgress((current) => completeLevel(
       current,
       activePuzzle.difficulty,
@@ -190,7 +197,7 @@ export function SudokuApp() {
     ));
     playTone(settings.sound, "success");
     return completedGame;
-  }, [settings.sound]);
+  }, [progress, settings.sound]);
 
   const pushHistory = (current: GameState) => [
     ...current.history.slice(-49),
@@ -327,10 +334,10 @@ export function SudokuApp() {
           : current?.status === "paused" ? { ...current, status: "playing" } : current);
         return;
       }
-      const delta: Record<string, number> = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -9, ArrowDown: 9 };
-      if (delta[event.key] !== undefined && game.selected !== null) {
+      if (game.selected !== null) {
+        const next = moveSelectionForKey(game.selected, event.key);
+        if (next === null) return;
         event.preventDefault();
-        const next = Math.min(80, Math.max(0, game.selected + delta[event.key]));
         setGame((current) => current ? { ...current, selected: next } : current);
       }
     };
@@ -388,9 +395,7 @@ export function SudokuApp() {
   const completionRecord = game && puzzle
     ? progress[puzzle.difficulty].records[puzzle.level]
     : undefined;
-  const isBestTime = Boolean(
-    game?.status === "completed" && completionRecord?.bestSeconds === game.elapsedSeconds,
-  );
+  const isBestTime = Boolean(game?.status === "completed" && game.isNewBest);
 
   return (
     <main className="app-shell">

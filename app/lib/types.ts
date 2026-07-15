@@ -24,6 +24,7 @@ export interface GameState {
   elapsedSeconds: number;
   status: "playing" | "paused" | "failed" | "completed";
   noteMode: boolean;
+  isNewBest?: boolean;
   history: HistorySnapshot[];
 }
 

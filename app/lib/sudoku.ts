@@ -26,6 +26,43 @@ export const DEFAULT_SETTINGS: SettingsState = {
   highlightPeers: true,
 };
 
+export type Direction = "left" | "right" | "up" | "down";
+
+export function isNewBestTime(
+  previousBest: number | undefined,
+  currentSeconds: number,
+) {
+  return previousBest === undefined || currentSeconds < previousBest;
+}
+
+export function moveSelection(index: number, direction: Direction) {
+  const row = Math.floor(index / 9);
+  const column = index % 9;
+
+  switch (direction) {
+    case "left":
+      return column > 0 ? index - 1 : index;
+    case "right":
+      return column < 8 ? index + 1 : index;
+    case "up":
+      return row > 0 ? index - 9 : index;
+    case "down":
+      return row < 8 ? index + 9 : index;
+  }
+}
+
+const KEY_DIRECTIONS: Partial<Record<string, Direction>> = {
+  ArrowLeft: "left",
+  ArrowRight: "right",
+  ArrowUp: "up",
+  ArrowDown: "down",
+};
+
+export function moveSelectionForKey(index: number, key: string) {
+  const direction = KEY_DIRECTIONS[key];
+  return direction ? moveSelection(index, direction) : null;
+}
+
 export function createGame(puzzle: Puzzle): GameState {
   return {
     puzzleId: puzzle.id,
@@ -38,6 +75,7 @@ export function createGame(puzzle: Puzzle): GameState {
     elapsedSeconds: 0,
     status: "playing",
     noteMode: false,
+    isNewBest: false,
     history: [],
   };
 }
@@ -116,11 +154,10 @@ export function completeLevel(
 ) {
   const next = structuredClone(progress);
   const current = next[difficulty].records[level];
+  const previousBest = current?.bestSeconds;
   next[difficulty].records[level] = {
     completed: true,
-    bestSeconds: current?.bestSeconds
-      ? Math.min(current.bestSeconds, seconds)
-      : seconds,
+    bestSeconds: isNewBestTime(previousBest, seconds) ? seconds : previousBest,
   };
   next[difficulty].unlocked = Math.max(next[difficulty].unlocked, Math.min(40, level + 1));
   return next;
