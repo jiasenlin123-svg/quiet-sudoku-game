@@ -80,6 +80,16 @@ export function isPeer(a: number, b: number) {
   );
 }
 
+export function getCandidates(board: number[], index: number) {
+  if (index < 0 || index >= 81 || board[index] !== 0) return [];
+  const used = new Set<number>();
+  for (let cell = 0; cell < 81; cell += 1) {
+    if (board[cell] !== 0 && isPeer(index, cell)) used.add(board[cell]);
+  }
+  return Array.from({ length: 9 }, (_, candidate) => candidate + 1)
+    .filter((candidate) => !used.has(candidate));
+}
+
 export function completeLevel(
   progress: ProgressState,
   difficulty: Difficulty,

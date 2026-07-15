@@ -10,6 +10,7 @@ import {
   DIFFICULTY_LABELS,
   EMPTY_PROGRESS,
   formatTime,
+  getCandidates,
   isPeer,
   loadJson,
   saveJson,
@@ -83,6 +84,7 @@ export function SudokuApp() {
   const [showSettings, setShowSettings] = useState(false);
   const [errorCell, setErrorCell] = useState<{ index: number; value: number } | null>(null);
   const [inputFeedback, setInputFeedback] = useState<InputFeedback | null>(null);
+  const [showCompletionOverlay, setShowCompletionOverlay] = useState(false);
   const errorTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const inputFeedbackTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -150,6 +152,12 @@ export function SudokuApp() {
     if (inputFeedbackTimer.current) clearTimeout(inputFeedbackTimer.current);
   }, []);
 
+  useEffect(() => {
+    if (game?.status !== "completed") return;
+    const timer = window.setTimeout(() => setShowCompletionOverlay(true), 900);
+    return () => window.clearTimeout(timer);
+  }, [game?.puzzleId, game?.status]);
+
   const flashInput = useCallback((feedback: InputFeedback) => {
     setInputFeedback(feedback);
     if (inputFeedbackTimer.current) clearTimeout(inputFeedbackTimer.current);
@@ -163,6 +171,7 @@ export function SudokuApp() {
     );
     if (!nextPuzzle) return;
     setSelectedDifficulty(difficulty);
+    setShowCompletionOverlay(false);
     setGame(createGame(nextPuzzle));
     setScreen("game");
     playTone(settings.sound, "tap");
@@ -170,6 +179,7 @@ export function SudokuApp() {
 
   const finishIfComplete = useCallback((nextGame: GameState, nextBoard: number[], activePuzzle: Puzzle) => {
     if (!nextBoard.every((value, index) => value === activePuzzle.solution[index])) return nextGame;
+    setShowCompletionOverlay(false);
     const completedGame = { ...nextGame, status: "completed" as const };
     setProgress((current) => completeLevel(
       current,
@@ -203,6 +213,9 @@ export function SudokuApp() {
         playTone(settings.sound, "tap");
         return { ...current, notes, history: pushHistory(current) };
       }
+
+      const candidates = getCandidates(current.board, index);
+      if (candidates.length === 1 && candidates[0] !== value) return current;
 
       if (puzzle.solution[index] !== value) {
         const mistakes = current.mistakes + 1;
@@ -337,6 +350,7 @@ export function SudokuApp() {
 
   const restart = () => {
     if (!puzzle) return;
+    setShowCompletionOverlay(false);
     setGame(createGame(puzzle));
   };
 
@@ -363,6 +377,18 @@ export function SudokuApp() {
   const completedTotal = DIFFICULTIES.reduce(
     (sum, difficulty) => sum + Object.values(progress[difficulty].records).filter((record) => record.completed).length,
     0,
+  );
+  const selectedCandidates = game?.selected === null || game?.selected === undefined
+    ? []
+    : getCandidates(game.board, game.selected);
+  const onlyCandidate = !game?.noteMode && selectedCandidates.length === 1
+    ? selectedCandidates[0]
+    : null;
+  const completionRecord = game && puzzle
+    ? progress[puzzle.difficulty].records[puzzle.level]
+    : undefined;
+  const isBestTime = Boolean(
+    game?.status === "completed" && completionRecord?.bestSeconds === game.elapsedSeconds,
   );
 
   return (
@@ -471,7 +497,7 @@ export function SudokuApp() {
           </span>
 
           <div className="board-wrap">
-            <div className={`sudoku-board ${game.status !== "playing" ? "board-obscured" : ""}`} role="grid" aria-label="数独棋盘">
+            <div className={`sudoku-board ${game.status === "completed" && !showCompletionOverlay ? "board-complete" : ""} ${game.status === "paused" || game.status === "failed" || showCompletionOverlay ? "board-obscured" : ""}`} role="grid" aria-label="数独棋盘">
               {game.board.map((value, index) => {
                 const fixed = puzzle.board[index] !== 0;
                 const hinted = game.hinted.includes(index);
@@ -505,8 +531,10 @@ export function SudokuApp() {
             {game.status === "failed" && (
               <div className="board-overlay"><span className="overlay-icon failure">×</span><h2>本局结束</h2><p>已经出现三次错误，休息一下再试。</p><button onClick={restart}>重新挑战</button><button className="text-action" onClick={() => { setScreen("levels"); setGame(null); }}>返回关卡</button></div>
             )}
-            {game.status === "completed" && (
-              <div className="board-overlay completed-overlay"><span className="overlay-icon success">✓</span><span className="eyebrow">挑战完成</span><h2>{formatTime(game.elapsedSeconds)}</h2><p>第 {puzzle.level} 关已完成，下一关已经解锁。</p>
+            {game.status === "completed" && showCompletionOverlay && (
+              <div className="board-overlay completed-overlay" role="dialog" aria-modal="true" aria-labelledby="completion-title"><span className="overlay-icon success">✓</span><span className="eyebrow">挑战完成</span><h2 id="completion-title">第 {puzzle.level} 关完成</h2>
+                <div className="completion-summary"><span><small>本次用时</small><strong>{formatTime(game.elapsedSeconds)}</strong></span><span><small>最好成绩</small><strong>{formatTime(completionRecord?.bestSeconds ?? game.elapsedSeconds)}</strong></span></div>
+                <p>{puzzle.level === 40 ? (isBestTime ? "新的最好成绩，本难度已全部完成。" : "完成记录已保存，本难度已全部完成。") : (isBestTime ? "新的最好成绩，下一关已经解锁。" : "完成记录已保存，下一关已经解锁。")}</p>
                 {puzzle.level < 40 && <button onClick={() => beginLevel(puzzle.difficulty, puzzle.level + 1)}>挑战下一关</button>}
                 <button className="text-action" onClick={() => setScreen("levels")}>查看关卡</button>
               </div>
@@ -527,8 +555,10 @@ export function SudokuApp() {
               const selectedNotes = game.selected === null ? [] : game.notes[game.selected];
               const active = selectedValue === number;
               const noted = game.noteMode && selectedNotes.includes(number);
+              const blockedByOnlyCandidate = onlyCandidate !== null && number !== onlyCandidate;
+              const isOnlyCandidate = onlyCandidate === number;
               const feedbackClass = errorCell?.value === number ? "key-error" : inputFeedback?.value === number ? `key-${inputFeedback.kind}` : "";
-              return <button key={number} className={`${active ? "active-number" : ""} ${noted ? "active-note" : ""} ${feedbackClass}`} aria-pressed={active || noted} disabled={used || game.status !== "playing"} onClick={() => enterNumber(number)}>{number}</button>;
+              return <button key={number} className={`${active ? "active-number" : ""} ${noted ? "active-note" : ""} ${isOnlyCandidate ? "only-candidate" : ""} ${feedbackClass}`} aria-label={isOnlyCandidate ? `${number}，唯一候选` : `${number}`} aria-pressed={active || noted} disabled={used || blockedByOnlyCandidate || game.status !== "playing"} onClick={() => enterNumber(number)}>{number}</button>;
             })}
           </div>
           <p className="keyboard-hint">键盘：数字填写 · N 切换笔记 · Esc 暂停</p>

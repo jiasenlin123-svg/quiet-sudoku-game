@@ -177,6 +177,10 @@ button:focus-visible, input:focus-visible {
 .cell.hinted .cell-value { color: #9b712e; }
 .notes-grid { display: grid; grid-template-columns: repeat(3, 1fr); width: 100%; height: 100%; padding: 2px; }
 .notes-grid i { display: grid; place-items: center; color: #55746c; font-size: clamp(.38rem, 1.6vw, .66rem); font-style: normal; line-height: 1; }
+.board-complete { animation: board-complete .9s ease-out; pointer-events: none; }
+.board-complete .cell-value { animation: complete-value .56s ease-out both; }
+@keyframes board-complete { 45% { border-color: var(--accent); box-shadow: 0 0 0 6px rgba(22,125,108,.12), 0 12px 36px rgba(22,125,108,.16); } }
+@keyframes complete-value { 45% { color: var(--accent); transform: scale(1.14); } }
 .board-obscured { filter: blur(12px); opacity: .18; pointer-events: none; }
 .board-overlay { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 28px; border-radius: 7px; background: rgba(247,250,248,.94); text-align: center; }
 .board-overlay h2 { margin: 14px 0 4px; font-size: 1.7rem; }
@@ -186,8 +190,15 @@ button:focus-visible, input:focus-visible {
 .overlay-icon { display: grid; place-items: center; width: 58px; height: 58px; border-radius: 50%; color: var(--accent); background: var(--accent-soft); font-size: 1.4rem; }
 .overlay-icon.failure { color: var(--danger); background: #f9e5e3; }
 .overlay-icon.success { color: white; background: var(--accent); }
-.completed-overlay h2 { margin-top: 8px; font-size: 2.4rem; letter-spacing: -.05em; }
+.completed-overlay { animation: completion-overlay-in .24s ease-out both; }
+.completed-overlay h2 { margin: 7px 0 11px; font-size: 1.45rem; }
 .completed-overlay .eyebrow { margin-top: 13px; }
+.completion-summary { display: grid; grid-template-columns: repeat(2, 1fr); width: min(100%, 290px); margin-bottom: 12px; padding: 12px; border-radius: 14px; background: white; box-shadow: 0 8px 24px rgba(30,67,58,.08); }
+.completion-summary span { display: grid; gap: 3px; }
+.completion-summary span + span { border-left: 1px solid #e1e9e6; }
+.completion-summary small { color: var(--muted); font-size: .68rem; }
+.completion-summary strong { font-size: 1.08rem; }
+@keyframes completion-overlay-in { from { opacity: 0; transform: scale(.98); } }
 
 .tool-row,
 .number-pad,
@@ -202,16 +213,19 @@ button:focus-visible, input:focus-visible {
 .tool-row button.active { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); }
 .tool-row button:disabled { opacity: .38; cursor: default; }
 .number-pad { display: grid; grid-template-columns: repeat(9, 1fr); gap: 5px; margin-top: 12px; }
-.number-pad button { aspect-ratio: 1; padding: 0; border: 0; border-radius: 12px; color: var(--accent-dark); background: white; cursor: pointer; font-size: clamp(1.25rem, 5vw, 1.85rem); font-weight: 570; box-shadow: 0 6px 16px rgba(36,69,61,.05); }
+.number-pad button { position: relative; aspect-ratio: 1; padding: 0; border: 0; border-radius: 12px; color: var(--accent-dark); background: white; cursor: pointer; font-size: clamp(1.25rem, 5vw, 1.85rem); font-weight: 570; box-shadow: 0 6px 16px rgba(36,69,61,.05); }
 .number-pad button:hover:not(:disabled) { color: white; background: var(--accent); }
 .number-pad button.active-number { color: white; background: var(--accent); box-shadow: 0 7px 18px rgba(22,125,108,.24); transform: translateY(-1px); }
 .number-pad button.active-note { color: var(--accent-dark); background: var(--accent-soft); box-shadow: inset 0 0 0 2px rgba(22,125,108,.4); }
+.number-pad button.only-candidate { color: var(--accent-dark); background: var(--accent-soft); box-shadow: inset 0 0 0 2px var(--accent), 0 7px 18px rgba(22,125,108,.16); animation: only-candidate 1.1s ease-in-out 2; }
+.number-pad button.only-candidate::after { content: ""; position: absolute; right: 6px; bottom: 5px; width: 5px; height: 5px; border-radius: 50%; background: var(--accent); }
 .number-pad button.key-correct { animation: key-correct .36s ease-out; }
 .number-pad button.key-note { animation: key-note .26s ease-out; }
 .number-pad button.key-error { animation: key-error .52s ease; }
 @keyframes key-correct { 45% { color: white; background: var(--accent); transform: translateY(-2px) scale(1.06); } }
 @keyframes key-note { 50% { background: var(--accent-soft); transform: scale(1.05); } }
 @keyframes key-error { 35% { color: white; background: var(--danger); transform: translateX(-2px); } 65% { transform: translateX(2px); } }
+@keyframes only-candidate { 50% { transform: translateY(-2px) scale(1.04); } }
 .number-pad button:disabled { color: #c5cecb; background: rgba(238,242,240,.65); cursor: default; box-shadow: none; }
 .keyboard-hint { margin: 13px 0 0; color: #96a19e; font-size: .68rem; text-align: center; }
 
