@@ -90,6 +90,24 @@ export function getCandidates(board: number[], index: number) {
     .filter((candidate) => !used.has(candidate));
 }
 
+export function isLastEmptyInUnit(board: number[], index: number) {
+  if (index < 0 || index >= 81 || board[index] !== 0) return false;
+  const row = Math.floor(index / 9);
+  const column = index % 9;
+  const boxRow = Math.floor(row / 3) * 3;
+  const boxColumn = Math.floor(column / 3) * 3;
+  let rowFilled = 0;
+  let columnFilled = 0;
+  let boxFilled = 0;
+  for (let cursor = 0; cursor < 9; cursor += 1) {
+    if (board[row * 9 + cursor] !== 0) rowFilled += 1;
+    if (board[cursor * 9 + column] !== 0) columnFilled += 1;
+    const boxIndex = (boxRow + Math.floor(cursor / 3)) * 9 + boxColumn + (cursor % 3);
+    if (board[boxIndex] !== 0) boxFilled += 1;
+  }
+  return rowFilled === 8 || columnFilled === 8 || boxFilled === 8;
+}
+
 export function completeLevel(
   progress: ProgressState,
   difficulty: Difficulty,

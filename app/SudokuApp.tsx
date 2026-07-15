@@ -11,6 +11,7 @@ import {
   EMPTY_PROGRESS,
   formatTime,
   getCandidates,
+  isLastEmptyInUnit,
   isPeer,
   loadJson,
   saveJson,
@@ -215,7 +216,7 @@ export function SudokuApp() {
       }
 
       const candidates = getCandidates(current.board, index);
-      if (candidates.length === 1 && candidates[0] !== value) return current;
+      if (isLastEmptyInUnit(current.board, index) && candidates.length === 1 && candidates[0] !== value) return current;
 
       if (puzzle.solution[index] !== value) {
         const mistakes = current.mistakes + 1;
@@ -381,7 +382,7 @@ export function SudokuApp() {
   const selectedCandidates = game?.selected === null || game?.selected === undefined
     ? []
     : getCandidates(game.board, game.selected);
-  const onlyCandidate = !game?.noteMode && selectedCandidates.length === 1
+  const onlyCandidate = !game?.noteMode && game?.selected !== null && game?.selected !== undefined && isLastEmptyInUnit(game.board, game.selected) && selectedCandidates.length === 1
     ? selectedCandidates[0]
     : null;
   const completionRecord = game && puzzle
