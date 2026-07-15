@@ -102,3 +102,9 @@ test("static Pages build includes an executable module entry", async () => {
   assert.match(html, /<title>静数独<\/title>/);
   assert.doesNotMatch(html, /__VINEXT_RSC|正在准备棋盘[^<]*<\/main><\/body>/);
 });
+
+test("board uses nine equal rows and columns", async () => {
+  const css = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
+  assert.match(css, /grid-template-columns:\s*repeat\(9,\s*minmax\(0,\s*1fr\)\)/);
+  assert.match(css, /grid-template-rows:\s*repeat\(9,\s*minmax\(0,\s*1fr\)\)/);
+});
