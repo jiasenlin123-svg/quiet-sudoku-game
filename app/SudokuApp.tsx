@@ -24,6 +24,7 @@ import type {
 } from "./lib/types";
 
 type Screen = "home" | "levels" | "game";
+type InputFeedback = { index: number; value: number; kind: "correct" | "note" };
 
 const difficultyDescriptions: Record<Difficulty, string> = {
   easy: "轻松热身",
@@ -81,7 +82,9 @@ export function SudokuApp() {
   const [game, setGame] = useState<GameState | null>(null);
   const [showSettings, setShowSettings] = useState(false);
   const [errorCell, setErrorCell] = useState<{ index: number; value: number } | null>(null);
+  const [inputFeedback, setInputFeedback] = useState<InputFeedback | null>(null);
   const errorTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const inputFeedbackTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const puzzle = useMemo(
     () => PUZZLES.find((item) => item.id === game?.puzzleId) ?? null,
@@ -144,6 +147,13 @@ export function SudokuApp() {
 
   useEffect(() => () => {
     if (errorTimer.current) clearTimeout(errorTimer.current);
+    if (inputFeedbackTimer.current) clearTimeout(inputFeedbackTimer.current);
+  }, []);
+
+  const flashInput = useCallback((feedback: InputFeedback) => {
+    setInputFeedback(feedback);
+    if (inputFeedbackTimer.current) clearTimeout(inputFeedbackTimer.current);
+    inputFeedbackTimer.current = setTimeout(() => setInputFeedback(null), feedback.kind === "correct" ? 360 : 260);
   }, []);
 
   const beginLevel = useCallback((difficulty: Difficulty, level: number) => {
@@ -189,6 +199,7 @@ export function SudokuApp() {
         notes[index] = notes[index].includes(value)
           ? notes[index].filter((item) => item !== value)
           : [...notes[index], value].sort();
+        flashInput({ index, value, kind: "note" });
         playTone(settings.sound, "tap");
         return { ...current, notes, history: pushHistory(current) };
       }
@@ -208,6 +219,7 @@ export function SudokuApp() {
         isPeer(index, noteIndex) ? item.filter((candidate) => candidate !== value) : [...item],
       );
       notes[index] = [];
+      flashInput({ index, value, kind: "correct" });
       playTone(settings.sound, "tap");
       return finishIfComplete(
         { ...current, board, notes, history: pushHistory(current) },
@@ -215,7 +227,7 @@ export function SudokuApp() {
         puzzle,
       );
     });
-  }, [finishIfComplete, puzzle, settings.sound]);
+  }, [finishIfComplete, flashInput, puzzle, settings.sound]);
 
   const eraseSelected = useCallback(() => {
     if (!puzzle) return;
@@ -450,10 +462,13 @@ export function SudokuApp() {
           </header>
 
           <div className="game-stats">
-            <span><small>错误</small><strong className={game.mistakes === 2 ? "danger" : ""}>{game.mistakes}<i>/3</i></strong></span>
+            <span className={errorCell ? "mistake-stat mistake-flash" : "mistake-stat"}><small>错误</small><strong className={game.mistakes >= 2 ? "danger" : ""}>{game.mistakes}<i>/3</i></strong></span>
             <span><small>时间</small><strong>{formatTime(game.elapsedSeconds)}</strong></span>
             <span><small>提示</small><strong>{game.hintsRemaining}<i>/3</i></strong></span>
           </div>
+          <span className="sr-only" role="status" aria-live="polite">
+            {errorCell ? `数字 ${errorCell.value} 不正确，当前错误 ${game.mistakes} 次` : inputFeedback?.kind === "correct" ? `数字 ${inputFeedback.value} 正确` : inputFeedback ? `候选数字 ${inputFeedback.value} 已更新` : ""}
+          </span>
 
           <div className="board-wrap">
             <div className={`sudoku-board ${game.status !== "playing" ? "board-obscured" : ""}`} role="grid" aria-label="数独棋盘">
@@ -469,7 +484,7 @@ export function SudokuApp() {
                 return (
                   <button
                     key={index}
-                    className={`cell ${fixed ? "fixed" : "player"} ${hinted ? "hinted" : ""} ${selected ? "selected" : ""} ${peer ? "peer" : ""} ${same ? "same" : ""} ${errorCell?.index === index ? "error" : ""} ${boxRight ? "box-right" : ""} ${boxBottom ? "box-bottom" : ""}`}
+                    className={`cell ${fixed ? "fixed" : "player"} ${hinted ? "hinted" : ""} ${selected ? "selected" : ""} ${peer ? "peer" : ""} ${same ? "same" : ""} ${inputFeedback?.index === index ? `input-${inputFeedback.kind}` : ""} ${errorCell?.index === index ? "error" : ""} ${boxRight ? "box-right" : ""} ${boxBottom ? "box-bottom" : ""}`}
                     onClick={() => game.status === "playing" && setGame({ ...game, selected: index })}
                     role="gridcell"
                     aria-label={`第 ${Math.floor(index / 9) + 1} 行第 ${index % 9 + 1} 列${value ? `，数字 ${value}` : "，空格"}`}
@@ -508,7 +523,12 @@ export function SudokuApp() {
           <div className="number-pad" aria-label="数字键盘">
             {Array.from({ length: 9 }, (_, index) => index + 1).map((number) => {
               const used = game.board.filter((value) => value === number).length === 9;
-              return <button key={number} disabled={used || game.status !== "playing"} onClick={() => enterNumber(number)}>{number}</button>;
+              const selectedValue = game.selected === null ? 0 : game.board[game.selected];
+              const selectedNotes = game.selected === null ? [] : game.notes[game.selected];
+              const active = selectedValue === number;
+              const noted = game.noteMode && selectedNotes.includes(number);
+              const feedbackClass = errorCell?.value === number ? "key-error" : inputFeedback?.value === number ? `key-${inputFeedback.kind}` : "";
+              return <button key={number} className={`${active ? "active-number" : ""} ${noted ? "active-note" : ""} ${feedbackClass}`} aria-pressed={active || noted} disabled={used || game.status !== "playing"} onClick={() => enterNumber(number)}>{number}</button>;
             })}
           </div>
           <p className="keyboard-hint">键盘：数字填写 · N 切换笔记 · Esc 暂停</p>
